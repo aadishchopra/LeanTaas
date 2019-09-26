@@ -13,12 +13,21 @@ knitr::opts_chunk$set(echo = TRUE)
 
 
 ```{r}
-#install.packages("RSQLite") #perhaps needed
-library("RSQLite")
+source("bootstrap.R")
+
 # connect to the sqlite file
 sqlite    <- dbDriver("SQLite")
-exampledb <- dbConnect(sqlite,"database.sqlite")
-dbListTables(exampledb)
+LTDB <- dbConnect(sqlite,"LeanTaaSTestDB.db")
+LT_table<-dbListTables(LTDB)
+statement<-paste0("Select * from ",LT_table)
+
+# get data in a dataframe
+
+exchange_transc<-dbGetQuery(conn = exampledb,statement = statement)
+
+# to analyze the file outside of tableau
+write.csv(exchange_transc,"exchange_transactions.csv")
+
 
 
 
