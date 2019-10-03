@@ -66,7 +66,7 @@ getChildId<-function(parentid)
   child_ids<-exchange_transc[exchange_transc$parent_transaction_id %in% parentid,]
   child_ids<-child_ids %>% filter (action %in% c('APPROVE_REQUEST','DENY_REQUEST'))
   parent_transaction<-request_transactions[request_transactions$transaction_id %in% parentid,]
-  time_to_resolve<-difftime(child_ids[,"snapshot_date"],parent_transaction[,"created_date"])
+  time_to_resolve<-difftime(child_ids[,"created_date"],parent_transaction[,"created_date"])
   return (time_to_resolve)
 }
 
@@ -85,7 +85,7 @@ get_tr_ChildId<-function(parentid)
   child_ids<-exchange_transc[exchange_transc$parent_transaction_id %in% parentid,]
   child_ids<-child_ids %>% filter (action %in% c('APPROVE_TRANSFER','DENY_TRANSFER'))
   parent_transaction<-transfer_transactions[transfer_transactions$transaction_id %in% parentid,]
-  time_to_resolve<-difftime(child_ids[,"snapshot_date"],parent_transaction[,"created_date"])
+  time_to_resolve<-difftime(child_ids[,"created_date"],parent_transaction[,"created_date"],units = "days")
   return (time_to_resolve)
 }
 
@@ -93,6 +93,27 @@ get_tr_ChildId<-function(parentid)
 ttt<-unlist(lapply(transfer_transactions$transaction_id, get_tr_ChildId))
 mean(ttt)
 
+
+
+```
+
+
+
+
+```{r}
+release_transactions<-exchange_transc %>% filter(action %in% c('RELEASE'))
+get_rs_ChildId<-function(parentid)
+{
+  child_ids<-exchange_transc[exchange_transc$parent_transaction_id %in% parentid,]
+  child_ids<-child_ids %>% filter (action %in% c('MARK_UPDATED'))
+  parent_transaction<-release_transactions[transfer_transactions$transaction_id %in% parentid,]
+  time_to_resolve<-difftime(child_ids[,"created_date"],release_transactions[,"created_date"],units = "days")
+  return (time_to_resolve)
+}
+
+
+trt<-unlist(lapply(release_transactions$transaction_id, get_rs_ChildId))
+mean(trt)
 
 
 ```
