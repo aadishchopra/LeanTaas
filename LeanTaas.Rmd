@@ -12,7 +12,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 
 
-```{r}
+```{r warning=FALSE,message=FALSE}
 source("bootstrap.R")
 
 # connect to the sqlite file
@@ -52,7 +52,10 @@ exchange_transc %>% group_by(action) %>% summarise(count=n()) %>% ggplot(.,mappi
 ```
 
 
+# Analyzing the transactions
 
+
+#### Analyzing request transactions
 
 ```{r}
 
@@ -75,7 +78,7 @@ mean(ttr)
 
 ```
 
-
+#### Analyzing transfer transactions
 
 ```{r}
 
@@ -98,7 +101,7 @@ mean(ttt)
 ```
 
 
-
+#### Analyzing Release transactions
 
 ```{r}
 release_transactions<-exchange_transc %>% filter(action %in% c('RELEASE'))
@@ -106,14 +109,49 @@ get_rs_ChildId<-function(parentid)
 {
   child_ids<-exchange_transc[exchange_transc$parent_transaction_id %in% parentid,]
   child_ids<-child_ids %>% filter (action %in% c('MARK_UPDATED'))
-  parent_transaction<-release_transactions[transfer_transactions$transaction_id %in% parentid,]
-  time_to_resolve<-difftime(child_ids[,"created_date"],release_transactions[,"created_date"],units = "days")
+  parent_transaction<-release_transactions[release_transactions$transaction_id %in% parentid,]
+  time_to_resolve<-difftime(child_ids[,"created_date"],parent_transaction[,"created_date"],units = "days")
   return (time_to_resolve)
 }
 
 
 trt<-unlist(lapply(release_transactions$transaction_id, get_rs_ChildId))
 mean(trt)
+
+
+```
+
+Request and Transfer transactions will be broken down in later sections of the report
+
+
+
+#### Number of locations in logs
+
+Assumption: 1. Each location is not the same as every other location
+            2. Each room within a location is same as every other room
+
+
+```{r}
+
+unique(exchange_transc$location)
+
+```
+
+
+```{r}
+
+exchange_transc %>% group_by(location) %>% summarise(count=n())
+exchange_transc %>% group_by(location,room_name) %>% summarise(count=n())
+
+```
+
+
+#### Utilization of resources
+
+
+```{r}
+
+exchange_transc %>% group_by(location) %>% filter(action %in% c('APPROVE_REQUEST','APPROVE_TRANSFER')) %>% summarise(count=n(),occupiedtime=difftime(end_time,start_time))
 
 
 ```
