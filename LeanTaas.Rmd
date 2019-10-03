@@ -38,8 +38,9 @@ dbDisconnect(LTDB)
 exchange_transc$created_date<-as_date(exchange_transc$created_datetime)
 exchange_transc$created_time<-substr(exchange_transc$created_datetime,12,19)
 exchange_transc$snapshot_date<-as_date(exchange_transc$snapshot_date)
-
-
+exchange_transc$start_time<-parse_hms(exchange_transc$start_time)
+exchange_transc$end_time<-parse_hms(exchange_transc$end_time)
+exchange_transc$created_time<-parse_hms(exchange_transc$created_time)
 ```
 
 
@@ -47,7 +48,7 @@ Following visualization would help us in giving an idea of how the exchange syst
 
 ```{r fig.width=10}
 
-exchange_transc %>% group_by(action) %>% summarise(count=n()) %>% ggplot(.,mapping = aes(x=action,y=count,fill=action))+geom_bar(stat = 'identity')
+exchange_transc %>% group_by(action) %>% summarise(count=n()) %>% ggplot(.,mapping = aes(x=action,y=count,fill=action))+geom_bar(stat = 'identity')+theme(axis.text.x = element_text(angle = 90, hjust = 1))+geom_text(aes(label=count), position=position_dodge(width=0.9), vjust=-0.25)
 
 ```
 
@@ -59,7 +60,7 @@ exchange_transc %>% group_by(action) %>% summarise(count=n()) %>% ggplot(.,mappi
 
 ```{r}
 
-exchange_transc %>% filter(action %in% c('REQUEST','APPROVE_REQUEST','DENY_REQUEST')) %>% count(action)
+kable(exchange_transc %>% filter(action %in% c('REQUEST','APPROVE_REQUEST','DENY_REQUEST')) %>% count(action),caption = "Breakdown for transactions of type Request",col.names = c('action','count'))
 
 
 
@@ -74,9 +75,13 @@ getChildId<-function(parentid)
 }
 
 ttr<-unlist(lapply(request_transactions$transaction_id, getChildId))
-mean(ttr)
+
+
 
 ```
+
+
+> The mean response rate to either deny or approve a **REQUEST** transaction is `r mean(ttr)` days
 
 #### Analyzing transfer transactions
 
@@ -94,12 +99,13 @@ get_tr_ChildId<-function(parentid)
 
 
 ttt<-unlist(lapply(transfer_transactions$transaction_id, get_tr_ChildId))
-mean(ttt)
+
 
 
 
 ```
 
+> The mean response rate to either deny or approve a **TRANSFER** transaction is `r mean(ttt)` days
 
 #### Analyzing Release transactions
 
@@ -121,6 +127,9 @@ mean(trt)
 
 ```
 
+> The mean response rate to either update a **RELEASE** transaction is `r mean(trt)` days
+
+
 Request and Transfer transactions will be broken down in later sections of the report
 
 
@@ -133,15 +142,15 @@ Assumption: 1. Each location is not the same as every other location
 
 ```{r}
 
-unique(exchange_transc$location)
+kable(unique(exchange_transc$location),col.names = 'location')
 
 ```
 
 
 ```{r}
 
-exchange_transc %>% group_by(location) %>% summarise(count=n())
-exchange_transc %>% group_by(location,room_name) %>% summarise(count=n())
+kable(exchange_transc %>% group_by(location) %>% summarise(count=n()) %>% arrange(desc(count)))
+kable(exchange_transc %>% group_by(location,room_name) %>% summarise(count=n()) %>% arrange(desc(count)))
 
 ```
 
@@ -151,8 +160,44 @@ exchange_transc %>% group_by(location,room_name) %>% summarise(count=n())
 
 ```{r}
 
-exchange_transc %>% group_by(location) %>% filter(action %in% c('APPROVE_REQUEST','APPROVE_TRANSFER')) %>% summarise(count=n(),occupiedtime=difftime(end_time,start_time))
+exchange_transc %>% group_by(location) %>% filter(action %in% c('APPROVE_REQUEST','APPROVE_TRANSFER')) %>% summarise(count=n(),occupiedtime=mean(difftime(end_time,start_time,units = "hours"))) %>% mutate(occupiedtime=as.numeric(sprintf("%0.2f",occupiedtime)))%>% ggplot(.,mapping = aes(x=reorder(location,-occupiedtime),y=occupiedtime,fill=location))+
+geom_bar(stat='identity')+xlab('location')+ylab('avg. occupied time (hrs)')+ geom_text(aes(label=occupiedtime), position=position_dodge(width=0.9), vjust=-0.25)
 
+
+```
+
+Occupied time shows the average utilization of these resources 
+
+
+#### Analysis of released resources
+
+```{r}
+
+exchange_transc %>% group_by(location) %>% filter(action %in% c('RELEASE')) %>% summarise(count=n(),releasetime=mean(difftime(end_time,start_time,units = "hours")))%>%
+mutate(releasetime=as.numeric(sprintf("%0.2f",releasetime))) %>% ggplot(.,mapping = aes(x=reorder(location,-releasetime),y=releasetime,fill=location))+geom_bar(stat='identity')+xlab('location')+ylab('avg. release time (hrs)')+geom_text(aes(label=releasetime), position=position_dodge(width=0.9), vjust=-0.25)
+
+
+```
+
+
+#### Analyzing a location's daily usage pattern
+
+
+```{r}
+getUsagePattern<-function(location)
+{
+  filtered_locations<-exchange_transc[exchange_transc['location']==location,]
+  filtered_locations<-filtered_locations[filtered_locations['action']=='APPROVE_TRANSFER'|filtered_locations['action']=='APPROVE_REQUEST',]
+    return(summary(filtered_locations['created_time']))
+  
+}
+
+getUsagePattern('CENTER')
+
+```
+
+
+```{r}
 
 ```
 
