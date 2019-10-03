@@ -23,11 +23,75 @@ statement<-paste0("Select * from ",LT_table)
 
 # get data in a dataframe
 
-exchange_transc<-dbGetQuery(conn = exampledb,statement = statement)
+exchange_transc<-dbGetQuery(conn = LTDB,statement = statement)
+dbDisconnect(LTDB)
 
 # to analyze the file outside of tableau
-write.csv(exchange_transc,"exchange_transactions.csv")
+#write.csv(exchange_transc,"exchange_transactions.csv")
 
+
+```
+
+
+
+```{r}
+exchange_transc$created_date<-as_date(exchange_transc$created_datetime)
+exchange_transc$created_time<-substr(exchange_transc$created_datetime,12,19)
+exchange_transc$snapshot_date<-as_date(exchange_transc$snapshot_date)
+
+
+```
+
+
+Following visualization would help us in giving an idea of how the exchange system is being used. 
+
+```{r fig.width=10}
+
+exchange_transc %>% group_by(action) %>% summarise(count=n()) %>% ggplot(.,mapping = aes(x=action,y=count,fill=action))+geom_bar(stat = 'identity')
+
+```
+
+
+
+
+```{r}
+
+exchange_transc %>% filter(action %in% c('REQUEST','APPROVE_REQUEST','DENY_REQUEST')) %>% count(action)
+
+
+
+request_transactions<-exchange_transc %>% filter(action %in% c('REQUEST'))
+getChildId<-function(parentid)
+{
+  child_ids<-exchange_transc[exchange_transc$parent_transaction_id %in% parentid,]
+  child_ids<-child_ids %>% filter (action %in% c('APPROVE_REQUEST','DENY_REQUEST'))
+  parent_transaction<-request_transactions[request_transactions$transaction_id %in% parentid,]
+  time_to_resolve<-difftime(child_ids[,"snapshot_date"],parent_transaction[,"created_date"])
+  return (time_to_resolve)
+}
+
+ttr<-unlist(lapply(request_transactions$transaction_id, getChildId))
+mean(ttr)
+
+```
+
+
+
+```{r}
+
+transfer_transactions<-exchange_transc %>% filter(action %in% c('TRANSFER'))
+get_tr_ChildId<-function(parentid)
+{
+  child_ids<-exchange_transc[exchange_transc$parent_transaction_id %in% parentid,]
+  child_ids<-child_ids %>% filter (action %in% c('APPROVE_TRANSFER','DENY_TRANSFER'))
+  parent_transaction<-transfer_transactions[transfer_transactions$transaction_id %in% parentid,]
+  time_to_resolve<-difftime(child_ids[,"snapshot_date"],parent_transaction[,"created_date"])
+  return (time_to_resolve)
+}
+
+
+ttt<-unlist(lapply(transfer_transactions$transaction_id, get_tr_ChildId))
+mean(ttt)
 
 
 
