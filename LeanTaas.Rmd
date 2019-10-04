@@ -114,7 +114,7 @@ release_transactions<-exchange_transc %>% filter(action %in% c('RELEASE'))
 get_rs_ChildId<-function(parentid)
 {
   child_ids<-exchange_transc[exchange_transc$parent_transaction_id %in% parentid,]
-  child_ids<-child_ids %>% filter (action %in% c('MARK_UPDATED'))
+  child_ids<-child_ids %>% filter (action %in% c('MARK_UPDATED','DENY_RELEASE'))
   parent_transaction<-release_transactions[release_transactions$transaction_id %in% parentid,]
   time_to_resolve<-difftime(child_ids[,"created_date"],parent_transaction[,"created_date"],units = "days")
   return (time_to_resolve)
@@ -188,7 +188,8 @@ getUsagePattern<-function(location)
 {
   filtered_locations<-exchange_transc[exchange_transc['location']==location,]
   filtered_locations<-filtered_locations[filtered_locations['action']=='APPROVE_TRANSFER'|filtered_locations['action']=='APPROVE_REQUEST',]
-    return(summary(filtered_locations['created_time']))
+  plot(density(hour(filtered_locations[,'created_time'])),main = "Usage patterns for Approvals",xlim = c(0,24),xlab = "Hour")
+  
   
 }
 
@@ -199,5 +200,17 @@ getUsagePattern('CENTER')
 
 ```{r}
 
+
+getUsagePattern<-function(location)
+{
+  filtered_locations<-exchange_transc[exchange_transc['location']==location,]
+  filtered_locations<-filtered_locations[filtered_locations['action']=='REQUEST'|filtered_locations['action']=='TRANSFER',]
+  plot(density(hour(filtered_locations[,'created_time'])),main = "Usage patterns for Requests and Transfers",xlim = c(0,24),xlab = "Hour")
+  
+  
+}
+
+getUsagePattern('CENTER')
+  
 ```
 
